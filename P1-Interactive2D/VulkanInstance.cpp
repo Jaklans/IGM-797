@@ -18,6 +18,8 @@
 #include <optional>
 #include <set>
 #include <fstream>
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_vulkan.h"
 
 
 const int WIDTH = 800;
@@ -63,16 +65,14 @@ static std::vector<char> readFile(const std::string& filename) {
 }
 
 
-	void VulkanInstance::Run() {
+	void VulkanInstance::Init() {
 		glfwInit();
 
 		InitWindow();
 
 		InitVulkan();
 
-		MainLoop();
-
-		Cleanup();
+		InitImGui();
 	}
 
 	void VulkanInstance::InitWindow() {
@@ -98,13 +98,114 @@ static std::vector<char> readFile(const std::string& filename) {
 		CreateCommandPool();
 		CreateCommandBuffers();
 		CreateSynchronizers();
+
+		CreateDescriptorPool();
+	}
+
+	void VulkanInstance::InitImGui() {
+		ImGui::CreateContext();
+
+		ImGuiIO& io = ImGui::GetIO();
+		io.DisplaySize = ImVec2(WIDTH, HEIGHT);
+		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+		io.Fonts->AddFontFromFileTTF("Assets/Fonts/Ubuntu-Regular.ttf", 16.0f);
+		unsigned char* fakeCharPtr;
+		int fakeInt;
+		io.Fonts->GetTexDataAsRGBA32(&fakeCharPtr, &fakeInt, &fakeInt, &fakeInt);
+
+		ImGui_ImplVulkan_InitInfo initInfo = {};
+		initInfo.Instance = instance;
+		initInfo.PhysicalDevice = physicalDevice;
+		initInfo.Device = device;
+		initInfo.QueueFamily = queueIndicies[0];
+		initInfo.Queue = graphicsQueue;
+		initInfo.PipelineCache = VK_NULL_HANDLE;
+		initInfo.DescriptorPool = descriptorPool;
+		initInfo.MinImageCount = 2;     
+		initInfo.ImageCount = static_cast<uint32_t>(swapChainImages.size());         
+		initInfo.MSAASamples; 
+		initInfo.Allocator = nullptr;
+		initInfo.CheckVkResultFn = nullptr;
+
+		ImGui_ImplVulkan_Init(&initInfo, renderPass);
+		imguiInitialized = true;
+		
+	}
+
+	void imguiEx() {
+		ImGui::Begin("My First Tool", 0, ImGuiWindowFlags_MenuBar);
+		if (ImGui::BeginMenuBar())
+		{
+			if (ImGui::BeginMenu("File"))
+			{
+				if (ImGui::MenuItem("Open..", "Ctrl+O")) { /* Do stuff */ }
+				if (ImGui::MenuItem("Save", "Ctrl+S")) { /* Do stuff */ }
+				if (ImGui::MenuItem("Close", "Ctrl+W")) {}
+				ImGui::EndMenu();
+			}
+			ImGui::EndMenuBar();
+		}
+
+		// Plot some values
+		const float my_values[] = { 0.2f, 0.1f, 1.0f, 0.5f, 0.9f, 2.2f };
+		ImGui::PlotLines("Frame Times", my_values, IM_ARRAYSIZE(my_values));
+
+		// Display contents in a scrolling region
+		ImGui::TextColored(ImVec4(1, 1, 0, 1), "Important Stuff");
+		ImGui::BeginChild("Scrolling");
+		for (int n = 0; n < 50; n++)
+			ImGui::Text("%04d: Some text", n);
+		ImGui::EndChild();
+		ImGui::End();
 	}
 
 	void VulkanInstance::MainLoop() {
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
+			
+			VkCommandBuffer buffer = beginSingleTimeCommands();
+
+			ImGui_ImplVulkan_NewFrame();
+			ImGui::NewFrame();
+			imguiEx();
+			ImGui::Render();
+			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), buffer);
+
+			endSingleTimeCommands(buffer);
 			drawFrame();
 		}
+	}
+
+	void VulkanInstance::render(VkCommandBuffer cmdBuffer) {
+		vkCmdDraw(cmdBuffer, 3, 1, 0, 0);
+		ImGui::NewFrame();
+		ImGui::Begin("My First Tool", 0, ImGuiWindowFlags_MenuBar);
+		if (ImGui::BeginMenuBar())
+		{
+			if (ImGui::BeginMenu("File"))
+			{
+				if (ImGui::MenuItem("Open..", "Ctrl+O")) { /* Do stuff */ }
+				if (ImGui::MenuItem("Save", "Ctrl+S")) { /* Do stuff */ }
+				if (ImGui::MenuItem("Close", "Ctrl+W")) {}
+				ImGui::EndMenu();
+			}
+			ImGui::EndMenuBar();
+		}
+
+		// Plot some values
+		const float my_values[] = { 0.2f, 0.1f, 1.0f, 0.5f, 0.9f, 2.2f };
+		ImGui::PlotLines("Frame Times", my_values, IM_ARRAYSIZE(my_values));
+
+		// Display contents in a scrolling region
+		ImGui::TextColored(ImVec4(1, 1, 0, 1), "Important Stuff");
+		ImGui::BeginChild("Scrolling");
+		for (int n = 0; n < 50; n++)
+			ImGui::Text("%04d: Some text", n);
+		ImGui::EndChild();
+		ImGui::End();
+		ImGui::Render();
+
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuffer);
 	}
 
 	void VulkanInstance::drawFrame() {
@@ -200,6 +301,8 @@ static std::vector<char> readFile(const std::string& filename) {
 			vkDestroyImageView(device, imageView, nullptr);
 		}
 
+		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+
 		vkDestroySwapchainKHR(device, swapChain, nullptr);
 	}
 
@@ -220,6 +323,7 @@ static std::vector<char> readFile(const std::string& filename) {
 		CreatePipeline();
 		CreateFramebuffers();
 		CreateCommandBuffers();
+		CreateDescriptorPool();
 	}
 
 	void VulkanInstance::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -524,10 +628,10 @@ static std::vector<char> readFile(const std::string& filename) {
 		QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
 
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-		std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+		queueIndicies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
 		float queuePriority = 1.0f;
-		for (uint32_t queueFamily : uniqueQueueFamilies) {
+		for (uint32_t queueFamily : queueIndicies) {
 			VkDeviceQueueCreateInfo queueCreateInfo = {};
 			queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 			queueCreateInfo.queueFamilyIndex = queueFamily;
@@ -773,8 +877,8 @@ static std::vector<char> readFile(const std::string& filename) {
 	}
 
 	void VulkanInstance::CreatePipeline() {
-		auto vertShaderCode = readFile("shaders/vert.spv");
-		auto fragShaderCode = readFile("shaders/frag.spv");
+		auto vertShaderCode = readFile("assets/shaders/vert.spv");
+		auto fragShaderCode = readFile("assets/shaders/frag.spv");
 
 		VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
 		VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
@@ -978,14 +1082,49 @@ static std::vector<char> readFile(const std::string& filename) {
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
+			//if(imguiInitialized) render(commandBuffers[i]);
 			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
-
 			vkCmdEndRenderPass(commandBuffers[i]);
 
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
 				throw std::runtime_error("Failed to record Command Buffer!");
 			}
 		}
+	}
+
+	VkCommandBuffer VulkanInstance::beginSingleTimeCommands()
+	{
+		VkCommandBufferAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandPool = commandPool;
+		allocInfo.commandBufferCount = 1;
+
+		VkCommandBuffer commandBuffer;
+		vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+		return commandBuffer;
+	}
+
+	void VulkanInstance::endSingleTimeCommands(VkCommandBuffer commandBuffer)
+	{
+		vkEndCommandBuffer(commandBuffer);
+
+		VkSubmitInfo submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(graphicsQueue);
+
+		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 	}
 
 	void VulkanInstance::CreateSynchronizers() {
@@ -1006,5 +1145,21 @@ static std::vector<char> readFile(const std::string& filename) {
 				vkCreateFence(device, &fenceInfo, nullptr, &sentFrameFences[i])) {
 				throw std::runtime_error("Failed to create Synchronizers");
 			}
+		}
+	}
+
+	void VulkanInstance::CreateDescriptorPool() {
+		VkDescriptorPoolSize poolSize = {};
+		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSize.descriptorCount = static_cast<uint32_t>(swapChainImages.size());
+		
+		VkDescriptorPoolCreateInfo poolInfo = {};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.poolSizeCount = 1;
+		poolInfo.pPoolSizes = &poolSize;
+		poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size());
+
+		if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create descriptor pool");
 		}
 	}

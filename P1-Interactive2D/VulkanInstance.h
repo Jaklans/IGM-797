@@ -11,6 +11,7 @@ public:
 	VkDebugUtilsMessengerEXT callback;
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
+	std::vector<uint32_t> queueIndicies;
 	VkQueue graphicsQueue;
 	VkSurfaceKHR surface;
 	VkQueue presentQueue;
@@ -24,26 +25,32 @@ public:
 	VkPipeline graphicsPipeline;
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 	VkCommandPool commandPool;
+	VkDescriptorPool descriptorPool;
 	std::vector<VkCommandBuffer> commandBuffers;
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> sentFrameFences;
 	size_t currentFrame = 0;
 	bool framebufferResized = false;
+	bool imguiInitialized = false;
 
-	void InitVulkan();
-	void Run();
+	void Init();
+
+	void Cleanup();
+	
+	void MainLoop();
 
 private:
-	
+	void InitVulkan();
 
 	void InitWindow();
 
-	void MainLoop();
+	void InitImGui();
 
 	void drawFrame();
 
-	void Cleanup();
+	//Contains all commands to be run on a standard frame
+	void render(VkCommandBuffer cmdBuffer);
 
 	void CleanupSwapchain();
 
@@ -107,5 +114,11 @@ private:
 
 	void CreateCommandBuffers();
 
+	VkCommandBuffer beginSingleTimeCommands();
+
+	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
 	void CreateSynchronizers();
+
+	void CreateDescriptorPool();
 };

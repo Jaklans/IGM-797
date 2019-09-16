@@ -10,11 +10,15 @@
 #include <iostream>
 #include <stdexcept>
 #include "VulkanInstance.h"
+#include "imgui/imgui.h"
 
 int main() {
 	try {
 		VulkanInstance vk;
-		vk.Run();
+		vk.Init();
+		//ImGui::NewFrame();
+		//ImGui::ShowDemoWindow();
+		vk.MainLoop();
 	}
 	catch (const std::exception& e) {
 		std::cerr << e.what() << std::endl;
