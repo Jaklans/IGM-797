@@ -26,6 +26,8 @@ public:
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 	VkCommandPool commandPool;
 	VkDescriptorPool descriptorPool;
+	VkCommandBuffer drawCmd;
+	VkCommandBuffer ImGuiCmd;
 	std::vector<VkCommandBuffer> commandBuffers;
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -113,6 +115,10 @@ private:
 	void CreateCommandPool();
 
 	void CreateCommandBuffers();
+
+	void beginSetCmdBuffer(VkCommandBuffer buffer);
+
+	void endSetCmdBuffer(VkCommandBuffer buffer);
 
 	VkCommandBuffer beginSingleTimeCommands();
 

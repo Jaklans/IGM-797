@@ -160,18 +160,25 @@ static std::vector<char> readFile(const std::string& filename) {
 	}
 
 	void VulkanInstance::MainLoop() {
+
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
 			
-			VkCommandBuffer buffer = beginSingleTimeCommands();
-
 			ImGui_ImplVulkan_NewFrame();
 			ImGui::NewFrame();
 			imguiEx();
-			ImGui::Render();
-			ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), buffer);
 
-			endSingleTimeCommands(buffer);
+			beginSetCmdBuffer(drawCmd);
+			vkCmdDraw(drawCmd, 3, 1, 0, 0);
+			endSetCmdBuffer(drawCmd);
+
+			//beginSetCmdBuffer(ImGuiCmd);
+			//
+				ImGui::Render();
+			//	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ImGuiCmd);
+			//
+			//endSetCmdBuffer(ImGuiCmd);
+
 			drawFrame();
 		}
 	}
@@ -1038,7 +1045,9 @@ static std::vector<char> readFile(const std::string& filename) {
 		VkCommandPoolCreateInfo poolInfo = {};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-		poolInfo.flags = 0;
+
+		//Modified to alow reseting
+		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
 		if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create Command Pool");
@@ -1046,9 +1055,34 @@ static std::vector<char> readFile(const std::string& filename) {
 	}
 
 	void VulkanInstance::CreateCommandBuffers() {
+		//Create Main Draw Command Buffer
+		VkCommandBufferAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.commandPool = commandPool;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+		allocInfo.commandBufferCount = 1;
+
+		if (vkAllocateCommandBuffers(device, &allocInfo, &drawCmd) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to allocate Command Buffers");
+		}
+
+		//Create Imgui Command Buffer
+		allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.commandPool = commandPool;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+		allocInfo.commandBufferCount = 1;
+
+		if (vkAllocateCommandBuffers(device, &allocInfo, &ImGuiCmd) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to allocate Command Buffers");
+		}
+		
+
+		//Create command buffers for three swapchains
+		//(They will only clear the screen and call secondary buffers)
 		commandBuffers.resize(swapChainFramebuffers.size());
 
-		VkCommandBufferAllocateInfo allocInfo = {};
+		allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.commandPool = commandPool;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -1081,15 +1115,38 @@ static std::vector<char> readFile(const std::string& filename) {
 
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
 			//if(imguiInitialized) render(commandBuffers[i]);
-			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+			//vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+
+			vkCmdExecuteCommands(commandBuffers[i], 1, &drawCmd);
+			//vkCmdExecuteCommands(commandBuffers[i], 1, &ImGuiCmd);
+
 			vkCmdEndRenderPass(commandBuffers[i]);
 
 			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
 				throw std::runtime_error("Failed to record Command Buffer!");
 			}
 		}
+	}
+
+	void VulkanInstance::beginSetCmdBuffer(VkCommandBuffer cmdBuffer) {
+		vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+
+		VkCommandBufferInheritanceInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+		info.renderPass = renderPass;
+
+		VkCommandBufferBeginInfo bufferBeginInfo = {};
+		bufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		//bufferBeginInfo.pInheritanceInfo = &info;
+		bufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+
+		vkBeginCommandBuffer(cmdBuffer, &bufferBeginInfo);
+		vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+	}
+
+	void VulkanInstance::endSetCmdBuffer(VkCommandBuffer cmdBuffer) {
+		vkEndCommandBuffer(cmdBuffer);
 	}
 
 	VkCommandBuffer VulkanInstance::beginSingleTimeCommands()
