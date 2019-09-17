@@ -84,14 +84,14 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)builds\$(ProjectName)\$(Platform)-$(Configuration)\</OutDir>
     <IncludePath>$(SolutionDir)include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
-    <IntDir>$(SolutionDir)builds\$(ProjectName)\intermediate</IntDir>
+    <IntDir>$(SolutionDir)builds\$(ProjectName)\intermediate\</IntDir>
     <CustomBuildAfterTargets>Build</CustomBuildAfterTargets>
     <SourcePath>$(SolutionDir)src;$(SourcePath)</SourcePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)builds\$(ProjectName)\$(Platform)-$(Configuration)\</OutDir>
     <IncludePath>$(SolutionDir)include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
-    <IntDir>$(SolutionDir)builds\$(ProjectName)\intermediate</IntDir>
+    <IntDir>$(SolutionDir)builds\$(ProjectName)\intermediate\</IntDir>
     <CustomBuildAfterTargets>Build</CustomBuildAfterTargets>
     <SourcePath>$(SolutionDir)src;$(SourcePath)</SourcePath>
   </PropertyGroup>

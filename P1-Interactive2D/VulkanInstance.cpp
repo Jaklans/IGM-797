@@ -148,6 +148,8 @@ static std::vector<char> readFile(const std::string& filename) {
 		ImVec4 color = { 1.0f, 0.0f, 0.0f, 0.0f };
 		int shape = 0;
 		float size = 1;
+		bool drawing;
+
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
 
@@ -169,8 +171,19 @@ static std::vector<char> readFile(const std::string& filename) {
 				NULL);
 			ImGui::Combo("Shape Type", &shape, "Point\0Triangle\0Quad\0Polygon\0Line");
 			ImGui::SliderFloat("Line/Point Size", &size, 0.0f, 10.0f);
+			ImGui::Spacing();
+			ImGui::Text("Press Space to end a Polygon");
 			ImGui::End();
 
+			//if (drawing) {
+			//
+			//}
+			//else {
+			//	if (!ImGui::GetIO().WantCaptureMouse && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+			//		
+			//	}
+			//}
+			
 
 			//~Game Code
 

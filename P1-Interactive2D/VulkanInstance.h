@@ -37,10 +37,8 @@ public:
 	size_t currentFrame = 0;
 	bool framebufferResized = false;
 
-	VkBuffer triVertBuffer;
-	VkDeviceMemory triVertBufferMemory;
-	VkBuffer lineVertBuffer;
-	VkDeviceMemory lineVertBufferMemory;
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMemory;
 
 
 	void Init();
