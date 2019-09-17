@@ -155,7 +155,7 @@ static std::vector<char> readFile(const std::string& filename) {
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
 
-			//ImGui::ShowDemoWindow();
+			ImGui::ShowDemoWindow();
 
 
 			//Game Code

@@ -42,6 +42,9 @@
     <ClInclude Include="imgui\imconfig.h">
       <Filter>Imgui</Filter>
     </ClInclude>
+    <ClInclude Include="imgui\imgui_impl_glfw.h">
+      <Filter>Imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Init.cpp">
@@ -63,6 +66,9 @@
       <Filter>Imgui</Filter>
     </ClCompile>
     <ClCompile Include="imgui\imgui.cpp">
+      <Filter>Imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imgui_impl_glfw.cpp">
       <Filter>Imgui</Filter>
     </ClCompile>
   </ItemGroup>
