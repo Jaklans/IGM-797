@@ -39,6 +39,8 @@ public:
 
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
+	VkPipeline linePipeline;
+	VkPipeline pointPipeline;
 
 
 	void Init();

@@ -23,8 +23,8 @@
 #include "imgui/imgui_impl_glfw.h"
 
 
-const int WIDTH = 1600;
-const int HEIGHT = 1200;
+const int WIDTH = 800;
+const int HEIGHT = 600;
 
 //Defines how many frames can be sent
 //for render before CPU must wait
@@ -37,12 +37,12 @@ const std::vector<const char*> requiredDeviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-const std::vector<Vertex> triVerts = {
-	{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-	{{-0.5f, 0.5f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f, 1.0f}}
-};;
-const std::vector<Vertex> lineVerts(2000);
+
+std::vector<Vertex> verticies(200);
+const int TRI_START_INDEX = 0;
+const int LINE_START_INDEX = 100;
+const int POINT_START_INDEX = 150;
+
 
 #ifdef _DEBUG
 const bool enableValidationLayers = true;
@@ -144,11 +144,35 @@ static std::vector<char> readFile(const std::string& filename) {
 		ImGui_ImplGlfw_InitForVulkan(window, true);
 	}
 
+	glm::vec2 convertMoustPos(float x, float y) {
+		return glm::vec2(x / (WIDTH / 2.0f) - 1.0f, y / (HEIGHT / 2.0f) - 1.0f);
+	}
+
+	inline bool isCCW(glm::vec2 a, glm::vec2 b, glm::vec2 c) {
+		return glm::cross(
+			glm::vec3(a - b, 0.0f),
+			glm::vec3(b - c, 0.0f)).z < 0.0f;
+	}
+
 	void VulkanInstance::MainLoop() {
-		ImVec4 color = { 1.0f, 0.0f, 0.0f, 0.0f };
-		int shape = 0;
+		ImVec4 color = { 1.0f, 0.0f, 0.0f, 1.0f };
+		int shape = 2;
 		float size = 1;
-		bool drawing;
+		bool drawing = false;
+
+		uint32_t triCount = 0;
+		uint32_t lineCount = 0;
+		uint32_t pointCount = 0;
+
+		uint32_t pointCounter = 0;
+
+		float zPos = 0.0f;
+		Vertex firstVert;
+		Vertex newVert;
+		Vertex prevVert;
+		
+		bool previousMouseState = false;
+		bool click = false; //has the mouse been clicked on this frame
 
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
@@ -169,30 +193,151 @@ static std::vector<char> readFile(const std::string& filename) {
 				(float*)& color,
 				0 | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_PickerHueWheel | ImGuiColorEditFlags_NoInputs,
 				NULL);
-			ImGui::Combo("Shape Type", &shape, "Point\0Triangle\0Quad\0Polygon\0Line");
+			ImGui::Combo("Shape Type", &shape, "Point\0Line\0Triangle\0Quad\0Polygon");
 			ImGui::SliderFloat("Line/Point Size", &size, 0.0f, 10.0f);
 			ImGui::Spacing();
 			ImGui::Text("Press Space to end a Polygon");
 			ImGui::End();
 
-			//if (drawing) {
-			//
-			//}
-			//else {
-			//	if (!ImGui::GetIO().WantCaptureMouse && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-			//		
-			//	}
-			//}
+			click = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !previousMouseState && !ImGui::GetIO().WantCaptureMouse;
+			previousMouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !ImGui::GetIO().WantCaptureMouse;
+
+			if (drawing) {
+				double x, y;
+				glfwGetCursorPos(window, &x, &y);
+				glm::vec2 pos = convertMoustPos(x, y);
+
+				switch (shape)
+				{
+				case 1: //line
+					verticies[LINE_START_INDEX + lineCount * 2 + 1] = { pos, { color.x, color.y, color.z, color.w } };
+					break;
+
+				case 2: //triangle
+					newVert = { pos, { color.x, color.y, color.z, color.w } };
+					if (pointCounter > 1) {
+						//verticies[TRI_START_INDEX + triCount * 3] = firstVert;
+
+						//Check winding
+						if (isCCW(newVert.pos, prevVert.pos, firstVert.pos)) {
+							verticies[TRI_START_INDEX + triCount * 3 + 1] = newVert;
+							verticies[TRI_START_INDEX + triCount * 3 + 2] = prevVert;
+						}
+						else {
+							verticies[TRI_START_INDEX + triCount * 3 + 1] = prevVert;
+							verticies[TRI_START_INDEX + triCount * 3 + 2] = newVert;
+						}
+					}
+					if (pointCounter >= 3) {
+						drawing = false;
+						triCount++;
+					}
+				case 3: 
+					newVert = { pos, { color.x, color.y, color.z, color.w } };
+					if (pointCounter > 1) {
+						verticies[TRI_START_INDEX + triCount * 3] = firstVert;
+
+						//Check winding
+						if (isCCW(newVert.pos, prevVert.pos, firstVert.pos)) {
+							verticies[TRI_START_INDEX + triCount * 3 + 1] = newVert;
+							verticies[TRI_START_INDEX + triCount * 3 + 2] = prevVert;
+						}
+						else {
+							verticies[TRI_START_INDEX + triCount * 3 + 1] = prevVert;
+							verticies[TRI_START_INDEX + triCount * 3 + 2] = newVert;
+						}
+					}
+					if (pointCounter == 4) {
+						triCount++;
+						drawing = false;
+					}
+					break;
+				}
+
+				if (click) {
+					if (shape == 0) drawing = false; 
+					switch (shape)
+					{
+					case 1: //line
+						drawing = false;
+						lineCount++;
+						break;
+					case 2: //triangle
+						if (pointCounter == 1) {
+							prevVert = newVert;
+						}
+						pointCounter++;
+						break;
+					case 3: //quad
+						if (pointCounter == 1) {
+							prevVert = newVert;
+						}
+						pointCounter++;
+						if (pointCounter == 3) {
+							firstVert = newVert;
+							triCount++;
+						}
+						break;
+					}
+				}
+			}
+			else {
+				if (click) {
+					double x, y; 
+					glfwGetCursorPos(window, &x, &y);
+					glm::vec2 pos = convertMoustPos(x, y);
+					
+					drawing = true;
+					switch (shape)
+					{
+					case 0: //point
+						verticies[POINT_START_INDEX + pointCount++] = { pos, { color.x, color.y, color.z, color.w } };
+						drawing = false;
+						break;
+					case 1: //line
+						verticies[LINE_START_INDEX + lineCount * 2] = { pos, { color.x, color.y, color.z, color.w } };
+						break;
+					
+					default: //triangle quad polygon, create degenerate tri
+						firstVert = { pos, { color.x, color.y, color.z, color.w } };
+						verticies[TRI_START_INDEX + triCount * 3] = firstVert;
+						verticies[TRI_START_INDEX + triCount * 3 + 1] = firstVert;
+
+						pointCounter = 1;
+						break;
+					}
+				}
+			}
 			
 
 			//~Game Code
 
 
 			beginSetCmdBuffer(drawCmd);
-			VkBuffer vertexBuffers[] = { triVertBuffer };
+
+			vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+
+			void* data;
+			vkMapMemory(device, vertexBufferMemory, 0, sizeof(Vertex) * verticies.size(), 0, &data);
+			memcpy(data, verticies.data(), (size_t)sizeof(Vertex) * verticies.size());
+			vkUnmapMemory(device, vertexBufferMemory);
+
+			VkBuffer vertexBuffers[] = { vertexBuffer };
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(drawCmd, 0, 1, vertexBuffers, offsets);
-			vkCmdDraw(drawCmd, static_cast<uint32_t>(triVerts.size()), 1, 0, 0);
+
+			//Tris
+			vkCmdBindPipeline(drawCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+			vkCmdDraw(drawCmd, 100, 1, TRI_START_INDEX, 0);
+			//Lines
+			vkCmdSetLineWidth(drawCmd, size);
+			vkCmdBindPipeline(drawCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, linePipeline);
+			vkCmdDraw(drawCmd, 50, 1, LINE_START_INDEX, 0);
+			//Points
+			vkCmdBindPipeline(drawCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pointPipeline);
+			vkCmdDraw(drawCmd, 50, 1, POINT_START_INDEX, 0);
+
+
 			endSetCmdBuffer(drawCmd);
 
 			beginSetCmdBuffer(ImGuiCmd);
@@ -298,10 +443,8 @@ static std::vector<char> readFile(const std::string& filename) {
 
 		CleanupSwapchain();
 
-		vkDestroyBuffer(device, triVertBuffer, nullptr);
-		vkDestroyBuffer(device, lineVertBuffer, nullptr);
-		vkFreeMemory(device, triVertBufferMemory, nullptr);
-		vkFreeMemory(device, lineVertBufferMemory, nullptr);
+		vkDestroyBuffer(device, vertexBuffer, nullptr);
+		vkFreeMemory(device, vertexBufferMemory, nullptr);
 
 		for (size_t i = 0; i < MAX_FRAMES_SENT; i++) {
 			vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
@@ -1043,6 +1186,15 @@ static std::vector<char> readFile(const std::string& filename) {
 			throw std::runtime_error("failed to create graphics pipeline!");
 		}
 
+		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &linePipeline) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create graphics pipeline!");
+		}
+		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pointPipeline) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create graphics pipeline!");
+		}
+
 		vkDestroyShaderModule(device, vertShaderModule, nullptr);
 		vkDestroyShaderModule(device, fragShaderModule, nullptr);
 	}
@@ -1088,25 +1240,21 @@ static std::vector<char> readFile(const std::string& filename) {
 	void VulkanInstance::CreateVertexBuffers() {
 		VkBufferCreateInfo bufferInfo = {};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = sizeof(Vertex) * triVerts.size();
+		bufferInfo.size = sizeof(Vertex) * verticies.size();
 		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		if (vkCreateBuffer(device, &bufferInfo, nullptr, &triVertBuffer) != VK_SUCCESS) {
+		if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create vertex buffer!");
 		}
 		bufferInfo = {};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = sizeof(Vertex) * triVerts.size();
+		bufferInfo.size = sizeof(Vertex) * verticies.size();
 		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		if (vkCreateBuffer(device, &bufferInfo, nullptr, &lineVertBuffer) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create vertex buffer!");
-		}
-
 		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(device, triVertBuffer, &memRequirements);
+		vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
 
 		VkMemoryAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -1116,20 +1264,16 @@ static std::vector<char> readFile(const std::string& filename) {
 				memRequirements.memoryTypeBits,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-		if (vkAllocateMemory(device, &allocInfo, nullptr, &triVertBufferMemory) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate vertex buffer memory!");
-		}
-		if (vkAllocateMemory(device, &allocInfo, nullptr, &lineVertBufferMemory) != VK_SUCCESS) {
+		if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) {
 			throw std::runtime_error("failed to allocate vertex buffer memory!");
 		}
 
-		vkBindBufferMemory(device, triVertBuffer, triVertBufferMemory, 0);
-		vkBindBufferMemory(device, lineVertBuffer, lineVertBufferMemory, 0);
+		vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
 
 		void* data;
-		vkMapMemory(device, triVertBufferMemory, 0, bufferInfo.size, 0, &data);
-		memcpy(data, triVerts.data(), (size_t)bufferInfo.size);
-		vkUnmapMemory(device, triVertBufferMemory);
+		vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+		memcpy(data, verticies.data(), (size_t)bufferInfo.size);
+		vkUnmapMemory(device, vertexBufferMemory);
 	}
 
 	uint32_t VulkanInstance::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
