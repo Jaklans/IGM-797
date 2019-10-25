@@ -7,23 +7,16 @@ Application::Application(VulkanInstance vkInstance) {
 	vk = vkInstance;
 
 //Project Specific Initialization
-	std::vector<primative::Vertex> verticies {
-		{ { -0.5f, -0.5f } },
-		{ {  0.5f,  0.5f } },
-		{ { -0.5f,  0.5f } },
-		{ { -0.5f, -0.5f } },
-		{ {  0.5f, -0.5f } },
-		{ {  0.5f,  0.5f } },
-	};
+	bunnyMesh.GenerateFromFile("assets/models/bunny2k.obj");
 
-	vk.CreateVertexBuffers(verticies);
+	//vk.CreateVertexBuffers(verticies);
 }
 
 void Application::MainLoop() {
 	while (!glfwWindowShouldClose(vk.window)) {
 		glfwPollEvents();
 		Update();
-		Render();
+		//Render();
 	}
 }
 
