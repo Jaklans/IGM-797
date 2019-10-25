@@ -166,6 +166,8 @@ static std::vector<char> readFile(const std::string& filename) {
 		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 		vkDestroyBuffer(device, vertexBuffer, nullptr);
 		vkFreeMemory(device, vertexBufferMemory, nullptr);
+		vkDestroyBuffer(device, indexBuffer, nullptr);
+		vkFreeMemory(device, indexBufferMemory, nullptr);
 
 		for (size_t i = 0; i < MAX_FRAMES_SENT; i++) {
 			vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
@@ -969,7 +971,7 @@ static std::vector<char> readFile(const std::string& filename) {
 		}
 	}
 
-	void VulkanInstance::CreateVertexBuffers(std::vector<primative::Vertex> verticies) {
+	void VulkanInstance::CreateVertexBuffers(std::vector<primative::Vertex> verticies) { // Consider updating this to use Staging Buffers
 		VkBufferCreateInfo bufferInfo = {};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		bufferInfo.size = sizeof(primative::Vertex) * verticies.size();
@@ -979,11 +981,6 @@ static std::vector<char> readFile(const std::string& filename) {
 		if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create vertex buffer!");
 		}
-		bufferInfo = {};
-		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = sizeof(primative::Vertex) * verticies.size();
-		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 		VkMemoryRequirements memRequirements;
 		vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
@@ -1005,6 +1002,53 @@ static std::vector<char> readFile(const std::string& filename) {
 		void* data;
 		vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
 		memcpy(data, verticies.data(), (size_t)bufferInfo.size);
+		vkUnmapMemory(device, vertexBufferMemory);
+	}
+
+	void VulkanInstance::CreateIndexBuffers(std::vector<unsigned short> indicies) { // Consider updating this to use Staging Buffers
+		VkBufferCreateInfo bufferInfo = {};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = sizeof(unsigned short) * indicies.size();
+		bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		if (vkCreateBuffer(device, &bufferInfo, nullptr, &indexBuffer) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create index buffer!");
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetBufferMemoryRequirements(device, indexBuffer, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex =
+			findMemoryType(
+				memRequirements.memoryTypeBits,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+		if (vkAllocateMemory(device, &allocInfo, nullptr, &indexBufferMemory) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate index buffer memory!");
+		}
+
+		vkBindBufferMemory(device, indexBuffer, indexBufferMemory, 0);
+
+		void* data;
+		vkMapMemory(device, indexBufferMemory, 0, bufferInfo.size, 0, &data);
+		memcpy(data, indicies.data(), (size_t)bufferInfo.size);
+		vkUnmapMemory(device, vertexBufferMemory);
+	}
+
+	void VulkanInstance::UpdateIndexBuffers(std::vector<unsigned short> indicies, size_t count) {
+		VkBufferCreateInfo bufferInfo = {};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = sizeof(unsigned short) * count;
+		bufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		void* data;
+		vkMapMemory(device, indexBufferMemory, 0, bufferInfo.size, 0, &data);
+		memcpy(data, indicies.data(), (size_t)bufferInfo.size);
 		vkUnmapMemory(device, vertexBufferMemory);
 	}
 

@@ -6,11 +6,12 @@ layout(push_constant) uniform modelViewProj {
 	vec4 color;
 } uniformData;
 
-layout(location = 0) in vec2 inPosition;
+layout(location = 0) in vec3 inPosition;
+layout(location = 1) in vec3 inNormal;
 
 layout(location = 0) out vec4 fragColor;
 
 void main() {
-    gl_Position = uniformData.data * vec4(inPosition, 0.0, 1.0);
-    fragColor = uniformData.color;
+    gl_Position = uniformData.data * vec4(inPosition, 1.0);
+    fragColor = vec4(inNormal, 1.0f);
 }

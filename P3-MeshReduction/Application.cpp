@@ -9,14 +9,15 @@ Application::Application(VulkanInstance vkInstance) {
 //Project Specific Initialization
 	bunnyMesh.GenerateFromFile("assets/models/bunny2k.obj");
 
-	//vk.CreateVertexBuffers(verticies);
+	vk.CreateVertexBuffers(bunnyMesh.verticies);
+	vk.CreateIndexBuffers(bunnyMesh.indices);
 }
 
 void Application::MainLoop() {
 	while (!glfwWindowShouldClose(vk.window)) {
 		glfwPollEvents();
 		Update();
-		//Render();
+		Render();
 	}
 }
 
@@ -32,40 +33,24 @@ void Application::Render() {
 	VkBuffer vertexBuffers[] = { vk.vertexBuffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(vk.drawCmd, 0, 1, vertexBuffers, offsets);
+	vkCmdBindIndexBuffer(vk.drawCmd, vk.indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT16);
 	vkCmdBindPipeline(vk.drawCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.graphicsPipeline);
 
-	glm::vec3 cameraPos = { 0.0f, 0.0f, -1.0f };
+	glm::vec3 cameraPos = { 0.0f, 1.0f, -3.0f };
 	glm::vec3 cameraForward = { 0.0f, 0.0f, 1.0f };
-	glm::vec3 cameraUp = { 0.0f, 1.0f, 0.0f };
+	glm::vec3 cameraUp = { 0.0f, -1.0f, 0.0f };
 
-	glm::mat4 viewProj =
+	primative::uniform uniform;
+
+	uniform.color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+
+	uniform.modelViewProj =
 		glm::perspective(45.0f, 4.0f / 3.0f, .01f, 100.0f)
 		* glm::lookAt(cameraPos, cameraForward + cameraPos, cameraUp);
 
-	/*
-	primative::uniform uni;
-	glm::vec3 cameraPos = { 0.0f, 0.0f, -15.0f };
-	glm::vec3 cameraForward = { 0.0f, 0.0f, 1.0f };
-	glm::vec3 cameraUp = { 0.0f, 1.0f, 0.0f };
+	vkCmdPushConstants(vk.drawCmd, vk.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(primative::uniform), &uniform.modelViewProj);
 
-	glm::mat4 model = {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	};
-
-	model = glm::translate(model, glm::vec3(1.0, 0, 0));
-
-	uni.modelViewProj = 
-		glm::perspective(50.0f, 4.0f / 3.0f, .01f, 100.0f)
-		* glm::lookAt(cameraPos, cameraForward + cameraPos, cameraUp)
-		* model
-	;
-
-	vkCmdPushConstants(vk.drawCmd, vk.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(primative::uniform), &uni);
-
-	vkCmdDraw(vk.drawCmd, 6, 1, 0, 0);*/
+	bunnyMesh.Render(vk.drawCmd);
 
 	vk.endSetCmdBuffer(vk.drawCmd);
 

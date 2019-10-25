@@ -15,6 +15,9 @@ void Mesh::GenerateFromFile(const char* filename){
 	primative::Vertex currentVertex;
 	unsigned short currentIndicies[3];
 
+	//TEMP - using normal to send color data
+	currentVertex.normal = { 0.0f, 0.0f, 0.0f };
+
 	while (std::getline(inputStream, line)) {
 		std::istringstream lineStream(line);
 
@@ -27,6 +30,17 @@ void Mesh::GenerateFromFile(const char* filename){
 			lineStream >> currentVertex.pos.x;
 			lineStream >> currentVertex.pos.y;
 			lineStream >> currentVertex.pos.z;
+
+			if (currentVertex.normal.r < 1.0f) {
+				currentVertex.normal.r += .0015f;
+			}
+			else if (currentVertex.normal.g < 1.0f) {
+				currentVertex.normal.g += .0015f;
+			}
+			else if (currentVertex.normal.b < 1.0f) {
+				currentVertex.normal.b += .0015f;
+			}
+
 			verticies.push_back(currentVertex);
 			break;
 		}
@@ -54,5 +68,9 @@ void Mesh::InitialMeshReductionSort(){
 }
 
 void Mesh::Render(VkCommandBuffer drawCmd, unsigned short triCount){
+	if (triCount > indices.size() / 3) {
+		triCount = indices.size() / 3;
+	}
 
+	vkCmdDrawIndexed(drawCmd, indices.size(), 1, 0, 0, 0);
 }

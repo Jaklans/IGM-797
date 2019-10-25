@@ -39,6 +39,8 @@ public:
 
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
 	//std::vector<VkBuffer> uniformBuffers;
 	//std::vector<VkDeviceMemory> uniformBuffersMemory;
 
@@ -58,6 +60,10 @@ public:
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 	
 	void CreateVertexBuffers(std::vector<primative::Vertex> verticies);
+
+	void CreateIndexBuffers(std::vector<unsigned short> indicies);
+
+	void UpdateIndexBuffers(std::vector<unsigned short> indicies, size_t count);
 
 private:
 	void InitVulkan();
