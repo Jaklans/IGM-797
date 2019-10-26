@@ -1,3 +1,4 @@
+#pragma once
 #define GLM_EXT_INCLUDED
 #include "Application.h"
 #include "glm/gtc/matrix_transform.hpp"

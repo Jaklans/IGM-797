@@ -1,11 +1,6 @@
 #pragma once
 //Testing and development based on
 //https://vulkan-tutorial.com/
-//Drawing/Framebuffers
-
-/*TODO:
-	Automate Shader Generation (almost done, work with outputdir and loading shaders)
-*/
 
 #include "VulkanInstance.h"
 
