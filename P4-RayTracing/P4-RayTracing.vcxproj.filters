@@ -21,6 +21,9 @@
     <ClInclude Include="Application.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Primative.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Init.cpp">
@@ -38,6 +41,9 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="shaders\source\primative.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="raycast.comp">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

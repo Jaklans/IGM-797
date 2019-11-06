@@ -115,6 +115,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
+    <ClInclude Include="Primative.h" />
     <ClInclude Include="VulkanInstance.h" />
   </ItemGroup>
   <ItemGroup>
@@ -123,6 +124,7 @@
     <ClCompile Include="VulkanInstance.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="raycast.comp" />
     <None Include="shaders\source\primative.frag" />
     <None Include="shaders\source\primative.vert" />
   </ItemGroup>

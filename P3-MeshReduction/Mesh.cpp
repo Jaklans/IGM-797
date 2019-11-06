@@ -16,7 +16,7 @@ void Mesh::GenerateFromFile(const char* filename){
 	std::string line;
 
 	Vertex currentVertex;
-	currentVertex.neighbors = std::vector<Vertex*>();
+	currentVertex.neighbors = std::vector<unsigned short>();
 	currentVertex.triangles = std::vector<Triangle*>();
 
 	Triangle currentTri;
@@ -84,14 +84,14 @@ void Mesh::GenerateFromFile(const char* filename){
 					found = false;
 					//Look through each of its neighbors  
 					for (size_t k = 0; k < tempVerts[currentTri.verticies[i]].neighbors.size(); k++) {
-						if (tempVerts[currentTri.verticies[i]].neighbors[k] == tempVerts[currentIndicies[j]]) {
+						if (tempVerts[currentTri.verticies[i]].neighbors[k] == currentIndicies[j]) {
 							found = true;
 							break;
 						}
 					}
 
 					//And add this index if it is not there already
-					if (!found) tempVerts[currentTri.verticies[i]].neighbors.push_back(&tempVerts[currentIndicies[j]]);
+					if (!found) tempVerts[currentTri.verticies[i]].neighbors.push_back(currentIndicies[j]);
 				}
 			}
 			//indices.push_back(currentIndicies[0] - 1);
@@ -195,8 +195,8 @@ float ComputeEdgeCost(Vertex* u, Vertex* v) {
 		}
 	}
 
-	if (sides.size() != 2) {
-		std::cout << "not 2 edges";
+	if (sides.size() < 2) {
+		//std::cout << "not 2 edges";
 		return 0.0f;
 	}
 

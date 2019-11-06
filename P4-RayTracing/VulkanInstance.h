@@ -3,7 +3,28 @@
 #include <glfw/glfw3.h>
 #include <glm/glm.hpp>
 
+#include "Primative.h"
+
 #include <vector>
+
+class VulkanInstance;
+
+//Create with VulkanInstance.CreateIndexBuffer()
+struct IndexBuffer {
+	void update(std::vector<unsigned short>& indicies);
+	void destroy();
+	VkBuffer buffer;
+	VkDeviceMemory deviceMemory;
+	VulkanInstance* vk;
+};
+//Create with VulkanInstance.CreateVertexBuffer()
+struct VertexBuffer {
+	void update(std::vector<void*>& verticies);
+	void destroy();
+	VkBuffer buffer;
+	VkDeviceMemory deviceMemory;
+	VulkanInstance* vk;
+};
 
 class VulkanInstance {
 public:
@@ -36,6 +57,8 @@ public:
 	size_t currentFrame = 0;
 	bool framebufferResized = false;
 
+	std::vector<VertexBuffer> vertexBuffers;
+	std::vector<IndexBuffer> indexBuffers;
 
 	void Init();
 
@@ -51,9 +74,9 @@ public:
 
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-	void CreateIndexBuffers(std::vector<unsigned short> indicies);
+	VertexBuffer* CreateVertexBuffer(std::vector<primative::IVertexData> verticies);
 
-	void UpdateIndexBuffers(std::vector<unsigned short> indicies, size_t count);
+	IndexBuffer* CreateIndexBuffer(std::vector<unsigned short> indicies);
 
 private:
 	void InitVulkan();
@@ -126,7 +149,7 @@ private:
 
 	void CreateCommandBuffers();
 
-	void resetCmdBuffer(int index);
+	void resetCmdBuffer(size_t index);
 
 	void CreateSynchronizers();
 
