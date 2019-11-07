@@ -8,6 +8,7 @@ Application::Application(VulkanInstance vkInstance) {
 	vk = vkInstance;
 
 //Project Specific Initialization
+
 }
 
 void Application::MainLoop() {
@@ -19,10 +20,6 @@ void Application::MainLoop() {
 }
 
 void Application::Update() {
-	
-	if (glfwGetKey(vk.window, GLFW_KEY_SPACE)) {
-		
-	}
 }
 
 void Application::Render() {

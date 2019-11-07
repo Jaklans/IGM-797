@@ -124,9 +124,11 @@
     <ClCompile Include="VulkanInstance.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="raycast.comp" />
+    <None Include="shaders\source\clipSpaceTri.vert" />
     <None Include="shaders\source\primative.frag" />
     <None Include="shaders\source\primative.vert" />
+    <None Include="shaders\source\raycast.comp" />
+    <None Include="shaders\source\renderTexture.frag" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

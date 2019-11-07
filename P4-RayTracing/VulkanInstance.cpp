@@ -794,8 +794,8 @@ static std::vector<char> readFile(const std::string& filename) {
 	}
 
 	void VulkanInstance::CreatePipeline() {
-		auto vertShaderCode = readFile("assets/shaders/vert.spv");
-		auto fragShaderCode = readFile("assets/shaders/frag.spv");
+		auto vertShaderCode = readFile("assets/shaders/clipSpaceTri.vert.spv");
+		auto fragShaderCode = readFile("assets/shaders/renderTexture.frag.spv");
 
 		VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
 		VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
