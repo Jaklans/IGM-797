@@ -48,7 +48,6 @@ public:
 	VkPipeline graphicsPipeline;
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 	VkCommandPool commandPool;
-	VkDescriptorPool descriptorPool;
 	VkCommandBuffer drawCmd;
 	std::vector<VkCommandBuffer> commandBuffers;
 	std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -59,6 +58,19 @@ public:
 
 	std::vector<VertexBuffer> vertexBuffers;
 	std::vector<IndexBuffer> indexBuffers;
+
+	VkImage outputImage;
+	VkDeviceMemory outputImageMemory;
+	VkImageView outputImageView;
+	VkSampler outputTextureSampler;
+
+	VkPipelineLayout compPipelineLayout;
+	VkPipeline compPipeline;
+	VkCommandBuffer compCmd;
+	VkDescriptorSetLayout compDescriptorSetLayout;
+
+	VkDescriptorPool descriptorPool;
+	std::vector<VkDescriptorSet> descriptorSets;
 
 	void Init();
 
@@ -135,11 +147,21 @@ private:
 
 	void CreateRenderPass();
 
-	void createDescriptorSetLayout();
+	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VkDeviceMemory& imageMemory);
+
+	VkImageView createImageView(VkImage image, VkFormat format);
+
+	void createTextureSampler();
 
 	VkShaderModule CreateShaderModule(const std::vector<char>& shaderCode);
 
 	void CreatePipeline();
+
+	void CreateComputePipeline();
+	
+	void CreateDescriptorPool();
+
+	void CreateDescriptorSets();
 
 	void CreateFramebuffers();
 
@@ -152,7 +174,5 @@ private:
 	void resetCmdBuffer(size_t index);
 
 	void CreateSynchronizers();
-
-	void CreateDescriptorPool();
 };
 
