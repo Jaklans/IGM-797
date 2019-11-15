@@ -88,13 +88,13 @@ static std::vector<char> readFile(const std::string& filename) {
 		CreateCommandBuffers();
 		CreateSynchronizers();
 
-		//CreateDescriptorPool();
-
 		// App Specific
 		CreateComputePipeline();
 		createImage(WIDTH, HEIGHT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, outputImage, outputImageMemory);
-		createImageView(outputImage, VK_FORMAT_R8G8B8A8_UNORM);
+		outputImageView = createImageView(outputImage, VK_FORMAT_R8G8B8A8_UNORM);
 		createTextureSampler();
+		CreateDescriptorPool();
+
 		//createImage(WIDTH, HEIGHT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_STORAGE_BIT, computeTarget, computeTargetMemory);
 	}
 
@@ -821,10 +821,10 @@ static std::vector<char> readFile(const std::string& filename) {
 		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		samplerInfo.anisotropyEnable = VK_FALSE;
 		//samplerInfo.maxAnisotropy = 16;
-		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
 		samplerInfo.unnormalizedCoordinates = VK_FALSE;
 		samplerInfo.compareEnable = VK_FALSE;
-		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+		samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
 		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 		samplerInfo.mipLodBias = 0.0f;
 		samplerInfo.minLod = 0.0f;
@@ -1030,24 +1030,27 @@ static std::vector<char> readFile(const std::string& filename) {
 		compShaderStageInfo.module = compShaderModule;
 		compShaderStageInfo.pName = "main";
 
-		VkPipelineLayout compLayout;
+		VkDescriptorSetLayoutBinding layoutBindings[2] = {};
+		layoutBindings[0].binding = 0;
+		layoutBindings[0].descriptorCount = 1;
+		layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		layoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		layoutBindings[0].pImmutableSamplers = nullptr;
 
-		VkDescriptorSetLayoutBinding layoutDescriptors = {};
-		layoutDescriptors.binding = 0;
-		layoutDescriptors.descriptorCount = 1;
-		layoutDescriptors.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		layoutDescriptors.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-		layoutDescriptors.pImmutableSamplers = nullptr;
+		layoutBindings[1].binding = 1;
+		layoutBindings[1].descriptorCount = 1;
+		layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		layoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		layoutBindings[1].pImmutableSamplers = nullptr;
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 1;
-		layoutInfo.pBindings = &layoutDescriptors;
+		layoutInfo.bindingCount = 2;
+		layoutInfo.pBindings = layoutBindings;
 
 		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &compDescriptorSetLayout) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create descriptor set layout");
 		}
-
 
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1056,7 +1059,7 @@ static std::vector<char> readFile(const std::string& filename) {
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &compLayout) != VK_SUCCESS) {
+		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &compPipelineLayout) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create Pipeline Layout");
 		}
 
@@ -1064,7 +1067,7 @@ static std::vector<char> readFile(const std::string& filename) {
 		compPipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
 		compPipelineInfo.flags = 0;
 		compPipelineInfo.stage = compShaderStageInfo;
-		compPipelineInfo.layout = compLayout;
+		compPipelineInfo.layout = compPipelineLayout;
 		compPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		compPipelineInfo.basePipelineIndex = -1;
 
@@ -1073,15 +1076,6 @@ static std::vector<char> readFile(const std::string& filename) {
 		}
 
 		vkDestroyShaderModule(device, compShaderModule, nullptr);
-	}
-
-	void VulkanInstance::CreateDescriptorSets() {
-		//vkCreateDescriptorPool(device,)
-		//
-		//VkDescriptorSetAllocateInfo allocateInfo = {};
-		//allocateInfo.
-		//
-		//	vkAllocateDescriptorSets()
 	}
 
 	void VulkanInstance::CreateFramebuffers() {
@@ -1288,7 +1282,7 @@ static std::vector<char> readFile(const std::string& filename) {
 
 	void VulkanInstance::CreateDescriptorPool() {
 		VkDescriptorPoolSize poolSize = {};
-		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		poolSize.descriptorCount = static_cast<uint32_t>(swapChainImages.size());
 		
 		VkDescriptorPoolCreateInfo poolInfo = {};
@@ -1319,17 +1313,17 @@ static std::vector<char> readFile(const std::string& filename) {
 		imageInfo.imageView = outputImageView;
 		imageInfo.sampler = outputTextureSampler;
 
-		VkWriteDescriptorSet samplerWrite;
-		for (size_t i = 0; i < swapChainImages.size(); i++) {
-			samplerWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			samplerWrite.dstSet = descriptorSets[i];
-			samplerWrite.dstBinding = 1;
-			samplerWrite.dstArrayElement = 0;
-			samplerWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			samplerWrite.descriptorCount = 1;
-			samplerWrite.pImageInfo = &imageInfo;
+		VkWriteDescriptorSet samplerWrite = {};
+		samplerWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		samplerWrite.dstBinding = 0;
+		samplerWrite.dstArrayElement = 0;
+		samplerWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerWrite.descriptorCount = 1;
+		samplerWrite.pImageInfo = &imageInfo;
 
-			//vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+		for (size_t i = 0; i < swapChainImages.size(); i++) {
+			samplerWrite.dstSet = descriptorSets[i];
+			vkUpdateDescriptorSets(device, 1, &samplerWrite, 0, nullptr);
 		}
 	}
 
@@ -1461,4 +1455,4 @@ static std::vector<char> readFile(const std::string& filename) {
 			vkFreeMemory(vk->device, deviceMemory, nullptr);
 			deviceMemory = 0;
 		}
-	}
+	} 
