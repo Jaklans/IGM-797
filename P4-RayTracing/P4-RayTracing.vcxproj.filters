@@ -24,6 +24,9 @@
     <ClInclude Include="Primative.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Settings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Init.cpp">
@@ -37,9 +40,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\source\primative.frag">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="shaders\source\primative.vert">
       <Filter>Shaders</Filter>
     </None>

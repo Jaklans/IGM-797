@@ -47,8 +47,10 @@
     <OutDir>$(SolutionDir)builds\$(ProjectName)\$(Platform)-$(Configuration)\</OutDir>
     <IncludePath>$(SolutionDir)include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <IntDir>$(SolutionDir)builds\$(ProjectName)\intermediate\</IntDir>
-    <CustomBuildAfterTargets>Build</CustomBuildAfterTargets>
+    <CustomBuildAfterTargets>
+    </CustomBuildAfterTargets>
     <SourcePath>$(SolutionDir)src;$(SourcePath)</SourcePath>
+    <CustomBuildBeforeTargets>Build</CustomBuildBeforeTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)builds\$(ProjectName)\$(Platform)-$(Configuration)\</OutDir>
@@ -79,8 +81,9 @@
       <Command>call shaders\compileShaders $(OutputPath)assets\shaders\ &amp; xcopy /Y /E /I assets $(OutputPath)assets</Command>
     </PreBuildEvent>
     <CustomBuildStep>
-      <Command>
-      </Command>
+      <Command>call shaders\compileShaders $(OutputPath)assets\shaders\ &amp; xcopy /Y /E /I assets $(OutputPath)assets</Command>
+      <Message>Compiling Shaders</Message>
+      <Outputs>nonExistantFile.txt</Outputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -116,6 +119,7 @@
   <ItemGroup>
     <ClInclude Include="Application.h" />
     <ClInclude Include="Primative.h" />
+    <ClInclude Include="Settings.h" />
     <ClInclude Include="VulkanInstance.h" />
   </ItemGroup>
   <ItemGroup>
@@ -125,7 +129,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\source\clipSpaceTri.vert" />
-    <None Include="shaders\source\primative.frag" />
     <None Include="shaders\source\primative.vert" />
     <None Include="shaders\source\raycast.comp" />
     <None Include="shaders\source\renderTexture.frag" />

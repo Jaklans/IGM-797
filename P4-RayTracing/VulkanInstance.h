@@ -76,9 +76,9 @@ public:
 
 	void Cleanup();
 	
-	void drawFrame();
+	void drawFrame(bool rebuildCmdBuffers = false);
 
-	void beginSetCmdBuffer(VkCommandBuffer buffer);
+	void beginSetCmdBuffer(VkCommandBuffer buffer, VkCommandBufferUsageFlags flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT);
 
 	void endSetCmdBuffer(VkCommandBuffer buffer);
 
@@ -171,7 +171,7 @@ private:
 
 	void CreateCommandBuffers();
 
-	void resetCmdBuffer(size_t index);
+	void resetCmdBuffer(size_t index, VkImageLayout initialLayoutTEMP = VK_IMAGE_LAYOUT_GENERAL);
 
 	void CreateSynchronizers();
 };

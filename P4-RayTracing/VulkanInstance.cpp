@@ -64,6 +64,8 @@ static std::vector<char> readFile(const std::string& filename) {
 		InitVulkan();
 	}
 
+
+
 	void VulkanInstance::InitWindow() {
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -85,12 +87,16 @@ static std::vector<char> readFile(const std::string& filename) {
 		CreatePipeline();
 		CreateFramebuffers();
 		CreateCommandPool();
+
+CreateComputePipeline();
+createImage(WIDTH, HEIGHT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, outputImage, outputImageMemory);
+
 		CreateCommandBuffers();
 		CreateSynchronizers();
 
 		// App Specific
-		CreateComputePipeline();
-		createImage(WIDTH, HEIGHT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, outputImage, outputImageMemory);
+		
+		
 		outputImageView = createImageView(outputImage, VK_FORMAT_R8G8B8A8_UNORM);
 		createTextureSampler();
 		CreateDescriptorPool();
@@ -98,7 +104,7 @@ static std::vector<char> readFile(const std::string& filename) {
 		//createImage(WIDTH, HEIGHT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_STORAGE_BIT, computeTarget, computeTargetMemory);
 	}
 
-	void VulkanInstance::drawFrame() {
+	void VulkanInstance::drawFrame(bool firstFrame) {
 		vkWaitForFences(device, 1, &sentFrameFences[currentFrame], VK_TRUE, UINT64_MAX);
 		vkResetFences(device, 1, &sentFrameFences[currentFrame]);
 
@@ -117,7 +123,8 @@ static std::vector<char> readFile(const std::string& filename) {
 		}
 
 		//Redefine Command Buffers (unfortunate)
-		resetCmdBuffer(currentFrame);
+		if(firstFrame) resetCmdBuffer(currentFrame, VK_IMAGE_LAYOUT_UNDEFINED);
+		else resetCmdBuffer(currentFrame);
 
 		VkSubmitInfo submitInfo = {};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -877,8 +884,8 @@ static std::vector<char> readFile(const std::string& filename) {
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {}; {
 			vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-			vertexInputInfo.vertexBindingDescriptionCount = 1;
-			vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+			vertexInputInfo.vertexBindingDescriptionCount = 0;
+			vertexInputInfo.pVertexBindingDescriptions = nullptr;//&bindingDescription;
 			vertexInputInfo.vertexAttributeDescriptionCount = 0;//static_cast<uint32_t>(attributeDescriptions.size());
 			vertexInputInfo.pVertexAttributeDescriptions = nullptr; // attributeDescriptions.data();
 		}
@@ -918,7 +925,7 @@ static std::vector<char> readFile(const std::string& filename) {
 			rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 			rasterizer.lineWidth = 1.0f;
 			rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-			rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+			rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 			rasterizer.depthBiasEnable = VK_FALSE;
 			rasterizer.depthBiasConstantFactor = 0.0f;
 			rasterizer.depthBiasClamp = 0.0f;
@@ -1020,64 +1027,6 @@ static std::vector<char> readFile(const std::string& filename) {
 		vkDestroyShaderModule(device, fragShaderModule, nullptr);
 	}
 
-	void VulkanInstance::CreateComputePipeline() {
-		auto compShaderCode = readFile("assets/shaders/raycast.comp.spv");
-		VkShaderModule compShaderModule = CreateShaderModule(compShaderCode);
-
-		VkPipelineShaderStageCreateInfo compShaderStageInfo = {};
-		compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		compShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-		compShaderStageInfo.module = compShaderModule;
-		compShaderStageInfo.pName = "main";
-
-		VkDescriptorSetLayoutBinding layoutBindings[2] = {};
-		layoutBindings[0].binding = 0;
-		layoutBindings[0].descriptorCount = 1;
-		layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		layoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-		layoutBindings[0].pImmutableSamplers = nullptr;
-
-		layoutBindings[1].binding = 1;
-		layoutBindings[1].descriptorCount = 1;
-		layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		layoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-		layoutBindings[1].pImmutableSamplers = nullptr;
-
-		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
-		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 2;
-		layoutInfo.pBindings = layoutBindings;
-
-		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &compDescriptorSetLayout) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create descriptor set layout");
-		}
-
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;
-		pipelineLayoutInfo.pSetLayouts = &compDescriptorSetLayout;
-		pipelineLayoutInfo.pushConstantRangeCount = 0;
-		pipelineLayoutInfo.pPushConstantRanges = nullptr;
-
-		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &compPipelineLayout) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create Pipeline Layout");
-		}
-
-		VkComputePipelineCreateInfo compPipelineInfo = {};
-		compPipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-		compPipelineInfo.flags = 0;
-		compPipelineInfo.stage = compShaderStageInfo;
-		compPipelineInfo.layout = compPipelineLayout;
-		compPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-		compPipelineInfo.basePipelineIndex = -1;
-
-		if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compPipelineInfo, nullptr, &compPipeline) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create compute pipeline!");
-		}
-
-		vkDestroyShaderModule(device, compShaderModule, nullptr);
-	}
-
 	void VulkanInstance::CreateFramebuffers() {
 		swapChainFramebuffers.resize(swapChainImageViews.size());
 
@@ -1143,7 +1092,8 @@ static std::vector<char> readFile(const std::string& filename) {
 
 		compCmd = *(&drawCmd + 1);
 
-		beginSetCmdBuffer(compCmd);
+		beginSetCmdBuffer(compCmd, VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT);
+		vkCmdBindPipeline(compCmd, VK_PIPELINE_BIND_POINT_COMPUTE, compPipeline);
 		endSetCmdBuffer(compCmd);
 
 		beginSetCmdBuffer(drawCmd);
@@ -1168,7 +1118,7 @@ static std::vector<char> readFile(const std::string& filename) {
 		}
 	}
 
-	void VulkanInstance::resetCmdBuffer(size_t index) {
+	void VulkanInstance::resetCmdBuffer(size_t index, VkImageLayout initialLayoutTEMP) {
 		vkResetCommandBuffer(commandBuffers[index], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 		VkCommandBufferBeginInfo beginInfo = {};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1189,12 +1139,29 @@ static std::vector<char> readFile(const std::string& filename) {
 		VkClearValue clearColor = { 0.0f,0.0f,0.0f,1.0f };
 		renderPassInfo.clearValueCount = 1;
 		renderPassInfo.pClearValues = &clearColor;
+vkCmdExecuteCommands(commandBuffers[index], 1, &compCmd);
+VkImageMemoryBarrier imageMemoryBarrier = {};
+imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+imageMemoryBarrier.oldLayout = initialLayoutTEMP;
+imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+imageMemoryBarrier.image = outputImage;
+imageMemoryBarrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+vkCmdPipelineBarrier(
+	commandBuffers[index],
+	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+	VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+	0,
+	0, nullptr,
+	0, nullptr,
+	1, &imageMemoryBarrier);
 
 		vkCmdBeginRenderPass(commandBuffers[index], &renderPassInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 		//vkCmdBindPipeline(commandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
 
-		vkCmdExecuteCommands(commandBuffers[index], 1, &compCmd);
+		
 		vkCmdExecuteCommands(commandBuffers[index], 1, &drawCmd);
 
 		vkCmdEndRenderPass(commandBuffers[index]);
@@ -1204,7 +1171,7 @@ static std::vector<char> readFile(const std::string& filename) {
 		}
 	}
 
-	void VulkanInstance::beginSetCmdBuffer(VkCommandBuffer cmdBuffer) {
+	void VulkanInstance::beginSetCmdBuffer(VkCommandBuffer cmdBuffer, VkCommandBufferUsageFlags flags) {
 		vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 
 		VkCommandBufferInheritanceInfo info = {};
@@ -1214,7 +1181,7 @@ static std::vector<char> readFile(const std::string& filename) {
 		VkCommandBufferBeginInfo bufferBeginInfo = {};
 		bufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		bufferBeginInfo.pInheritanceInfo = &info;
-		bufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+		bufferBeginInfo.flags = flags;
 
 		vkBeginCommandBuffer(cmdBuffer, &bufferBeginInfo);
 		//vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
@@ -1277,53 +1244,6 @@ static std::vector<char> readFile(const std::string& filename) {
 				vkCreateFence(device, &fenceInfo, nullptr, &sentFrameFences[i])) {
 				throw std::runtime_error("Failed to create Synchronizers");
 			}
-		}
-	}
-
-	void VulkanInstance::CreateDescriptorPool() {
-		VkDescriptorPoolSize poolSize = {};
-		poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSize.descriptorCount = static_cast<uint32_t>(swapChainImages.size());
-		
-		VkDescriptorPoolCreateInfo poolInfo = {};
-		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.poolSizeCount = 1;
-		poolInfo.pPoolSizes = &poolSize;
-		poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size());
-
-		if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create descriptor pool");
-		}
-
-		std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
-
-		VkDescriptorSetAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = descriptorPool;
-		allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
-		allocInfo.pSetLayouts = layouts.data();
-
-		descriptorSets.resize(swapChainImages.size());
-		if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate descriptor sets!");
-		}
-
-		VkDescriptorImageInfo imageInfo = {};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = outputImageView;
-		imageInfo.sampler = outputTextureSampler;
-
-		VkWriteDescriptorSet samplerWrite = {};
-		samplerWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		samplerWrite.dstBinding = 0;
-		samplerWrite.dstArrayElement = 0;
-		samplerWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		samplerWrite.descriptorCount = 1;
-		samplerWrite.pImageInfo = &imageInfo;
-
-		for (size_t i = 0; i < swapChainImages.size(); i++) {
-			samplerWrite.dstSet = descriptorSets[i];
-			vkUpdateDescriptorSets(device, 1, &samplerWrite, 0, nullptr);
 		}
 	}
 
@@ -1456,3 +1376,115 @@ static std::vector<char> readFile(const std::string& filename) {
 			deviceMemory = 0;
 		}
 	} 
+
+
+	void VulkanInstance::CreateComputePipeline() {
+		auto compShaderCode = readFile("assets/shaders/raycast.comp.spv");
+		VkShaderModule compShaderModule = CreateShaderModule(compShaderCode);
+
+		VkPipelineShaderStageCreateInfo compShaderStageInfo = {};
+		compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		compShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+		compShaderStageInfo.module = compShaderModule;
+		compShaderStageInfo.pName = "main";
+
+		VkDescriptorSetLayoutBinding layoutBindings[2] = {};
+
+		layoutBindings[0] = {};
+		layoutBindings[0].binding = 0;
+		layoutBindings[0].descriptorCount = 1;
+		layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		layoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		layoutBindings[0].pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = 1;
+		layoutInfo.pBindings = layoutBindings;
+
+		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &compDescriptorSetLayout) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create descriptor set layout");
+		}
+
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = 1;
+		pipelineLayoutInfo.pSetLayouts = &compDescriptorSetLayout;
+		pipelineLayoutInfo.pushConstantRangeCount = 0;
+		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+
+		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &compPipelineLayout) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create Pipeline Layout");
+		}
+
+		VkComputePipelineCreateInfo compPipelineInfo = {};
+		compPipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+		compPipelineInfo.flags = 0;
+		compPipelineInfo.stage = compShaderStageInfo;
+		compPipelineInfo.layout = compPipelineLayout;
+		compPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+		compPipelineInfo.basePipelineIndex = -1;
+
+		if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compPipelineInfo, nullptr, &compPipeline) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create compute pipeline!");
+		}
+
+		vkDestroyShaderModule(device, compShaderModule, nullptr);
+	}
+	
+	void VulkanInstance::CreateDescriptorPool() {
+		VkDescriptorPoolSize poolSizes[2];
+		poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages.size());
+
+		poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		poolSizes[1].descriptorCount = 1;
+
+		
+		VkDescriptorPoolCreateInfo poolInfo = {};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.poolSizeCount = 2;
+		poolInfo.pPoolSizes = poolSizes;
+		poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size() + 1);
+
+		if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create descriptor pool");
+		}
+
+		std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
+
+		layouts.push_back(compDescriptorSetLayout);
+
+		VkDescriptorSetAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = descriptorPool;
+		allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size() + 1);
+		allocInfo.pSetLayouts = layouts.data();
+
+		descriptorSets.resize(swapChainImages.size() + 1);
+		if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate descriptor sets!");
+		}
+
+		VkDescriptorImageInfo imageInfo = {};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imageInfo.imageView = outputImageView;
+		imageInfo.sampler = outputTextureSampler;
+
+		VkWriteDescriptorSet samplerWrite = {};
+		samplerWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		samplerWrite.dstBinding = 0;
+		samplerWrite.dstArrayElement = 0;
+		samplerWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerWrite.descriptorCount = 1;
+		samplerWrite.pImageInfo = &imageInfo;
+
+		for (size_t i = 0; i < swapChainImages.size(); i++) {
+			samplerWrite.dstSet = descriptorSets[i];
+			vkUpdateDescriptorSets(device, 1, &samplerWrite, 0, nullptr);
+		}
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		samplerWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		samplerWrite.dstSet = descriptorSets[swapChainImages.size()];
+		vkUpdateDescriptorSets(device, 1, &samplerWrite, 0, nullptr);
+	}
