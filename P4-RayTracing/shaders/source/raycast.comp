@@ -9,14 +9,23 @@ layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_
 layout(binding = 0, rgba8) uniform writeonly image2D outputTexture;
 
 
+struct renderData{
+	vec3 color;
+	float ambient;
+	float diffuse;
+	float phong;
+};
+
 struct sphere{
 	vec3 pos;
 	float rad;
+	renderData rd;
 };
 
+#define SPHERE_COUNT 2
 const sphere spheres[] = sphere[2](
-	sphere(vec3(1.5,0.5,5.0), 1.0),
-	sphere(vec3(-1.2,0.5,3.5), 1.0)
+	sphere(vec3( 1.5,0.5,5.0), 1.0, renderData(vec3(0,0,1), .2, .8, 1)),
+	sphere(vec3(-1.2,0.5,3.5), 0.5, renderData(vec3(1,0,0), .2, .8, 1))
 );
 
 struct light{
@@ -25,11 +34,13 @@ struct light{
 	float intensity;
 };
 
-//const light mainLight = light(-10, 3, 20);
+const light mainLight = light(vec3(0, 5, 0), vec3(1,1,1), 1);
 
 struct hitData {
 	vec3 pos;
-	float distance;
+	float dis;
+	vec3 normal;
+	renderData rd;
 };
 
 //Ray is assumed to be normalized
@@ -38,15 +49,47 @@ vec3 checkSphereIntercept(vec3 ray, sphere sphere){
 	return sphere.pos - (dot(ray, sphere.pos) * ray);
 }
 
+hitData checkPrimaryRay(vec3 ray) {
+	hitData result;
+	result.dis = 9999999;
+
+	// Spheres
+	vec3 pos;
+	float dis;
+	for(int i = 0; i < SPHERE_COUNT; i++){
+			//Store shortest vector from sphere center to ray
+		pos = spheres[i].pos - (dot(ray, spheres[i].pos) * ray);
+			//Store length of this vector
+		dis = length(pos);
+
+			//Jump out if ray does not intercept
+		if(dis > spheres[i].rad) continue;
+
+			//Determine distance to interception
+		dis = length(pos + spheres[i].pos) - sqrt(spheres[i].rad * spheres[i].rad - dot(pos, pos));
+		
+		if(dis > result.dis) continue;
+
+		result.pos = ray * dis;
+		result.dis = dis;
+		result.normal = normalize(spheres[i].pos - result.pos);
+		result.rd = spheres[i].rd;
+	}
+
+	return result;
+}
+
+bool checkSecondaryRay() {
+	for(int i = 0; i < SPHERE_COUNT; i++){
+	}
+	return false;
+}
+
 
 void main() {
 	vec2 coords = vec2(gl_GlobalInvocationID.x / (WIDTH * WORKGROUP_SIZE), gl_GlobalInvocationID.y / (WIDTH * WORKGROUP_SIZE));
 
-	//imageStore(outputTexture, ivec2(gl_WorkGroupID.xy), vec4(gl_GlobalInvocationID.y / (WIDTH * WORKGROUP_SIZE), 0.0, 1.0, 1.0));
-	//vec3(0.383022219f, 0.422618270f, 0.821393728)
-
-
-	vec3 dir = normalize(
+	vec3 ray = normalize(
 		mix(
 			vec3( 1.0,0.0,0.0), 
 			vec3(-1.0,0.0,0.0),
@@ -58,26 +101,20 @@ void main() {
 			coords.y)
 		+ vec3(0.0, 0.0, 1.0));
 
-	float val = 0;
 
-	//Handle all Sphere intercections
-	hitData result = hitData(vec3(0,0,0),9999999);
+	hitData hit = checkPrimaryRay(ray);
 
-	vec3 v;
-	for(int i = 0; i < 2; i++){
-		v = checkSphereIntercept(dir, spheres[i]);
-		if(length(v) < 1.0){
-			float x = sqrt(spheres[i].rad * spheres[i].rad - dot(v,v));
-			vec3 interceptPoint = spheres[i].pos + v - x * dir;
-			float distance = length(interceptPoint);
-			if(length(interceptPoint) < result.distance) result = hitData(interceptPoint, distance);
-			val = distance;
-		}
-	}
-	if(val < .01){
-		imageStore(outputTexture, ivec2(gl_WorkGroupID.xy), vec4(dir,1));
+	if(hit.dis > 999999){
+		imageStore(outputTexture, ivec2(gl_WorkGroupID.xy), vec4(ray,1));
 	}
 	else{
-		imageStore(outputTexture, ivec2(gl_WorkGroupID.xy), vec4(result.pos,1));
+		vec3 s = normalize(-mainLight.pos + hit.pos);
+		vec3 r =  s + (((dot(hit.normal, s) * hit.normal) - s));
+		float ld = mainLight.intensity * hit.rd.diffuse * dot(s, hit.normal);
+		float ls = mainLight.intensity * hit.rd.phong * pow(dot(-ray, r), 50);
+		vec3 color = ((hit.rd.ambient + ld) * mainLight.color * hit.rd.color);// + (ls * mainLight.color);
+		imageStore(outputTexture, ivec2(gl_WorkGroupID.xy), vec4(color, 1));
 	}
+
+
 }
