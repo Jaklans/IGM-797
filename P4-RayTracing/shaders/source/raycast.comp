@@ -28,6 +28,17 @@ const sphere spheres[] = sphere[2](
 	sphere(vec3(-1.2,0.5,3.5), 0.5, renderData(vec3(1,0,0), .2, .8, 1))
 );
 
+struct box{
+	vec3 a;
+	vec3 b;
+	//renderData rd;
+};
+
+#define BOX_COUNT 1
+const box boxes[] = box[1](
+	box(vec3(0,0,0),vec3(0,0,0))
+);
+
 struct light{
 	vec3 pos;
 	vec3 color;
@@ -39,7 +50,7 @@ const light mainLight = light(vec3(0, 5, 0), vec3(1,1,1), 1);
 struct hitData {
 	vec3 pos;
 	float dis;
-	vec3 normal;
+	vec3 norm;
 	renderData rd;
 };
 
@@ -53,9 +64,10 @@ hitData checkPrimaryRay(vec3 ray) {
 	hitData result;
 	result.dis = 9999999;
 
-	// Spheres
 	vec3 pos;
 	float dis;
+
+	// Spheres
 	for(int i = 0; i < SPHERE_COUNT; i++){
 			//Store shortest vector from sphere center to ray
 		pos = spheres[i].pos - (dot(ray, spheres[i].pos) * ray);
@@ -72,17 +84,39 @@ hitData checkPrimaryRay(vec3 ray) {
 
 		result.pos = ray * dis;
 		result.dis = dis;
-		result.normal = normalize(spheres[i].pos - result.pos);
+		result.norm = normalize(spheres[i].pos - result.pos);
 		result.rd = spheres[i].rd;
+	}
+
+	// Boxes
+	for(int i = 0; i < BOX_COUNT; i++){
+		vec3 ta = boxes[i].a / ray;
+		vec3 tb = boxes[i].b / ray;
+		
+		vec3 tmin = min(ta, tb);
+		vec3 tmax = max(ta, tb);
+
+		float minmax = min(min(tmax.x, tmax.y), tmax.z);
+		float maxmin = max(max(tmin.x, tmin.y), tmin.z);
+
+		if(minmax < maxmin) continue;
+		if(maxmin > result.dis) continue;
+
+		result.pos = maxmin * ray;
+		result.dis = maxmin;
+		result.norm = vec3(0,0,1);
+		result.rd = spheres[0].rd;
 	}
 
 	return result;
 }
 
-bool checkSecondaryRay() {
+//Return 1 if ray gets to light, 0 if it hits geometry first
+float checkSecondaryRay(vec3 ray, vec3 pos) {
 	for(int i = 0; i < SPHERE_COUNT; i++){
+		if (length(spheres[i].pos - pos - (dot(ray, spheres[i].pos - pos) * ray)) < spheres[i].rad - .1) return 0;
 	}
-	return false;
+	return 1;
 }
 
 
@@ -108,13 +142,14 @@ void main() {
 		imageStore(outputTexture, ivec2(gl_WorkGroupID.xy), vec4(ray,1));
 	}
 	else{
-		vec3 s = normalize(-mainLight.pos + hit.pos);
-		vec3 r =  s + (((dot(hit.normal, s) * hit.normal) - s));
-		float ld = mainLight.intensity * hit.rd.diffuse * dot(s, hit.normal);
-		float ls = mainLight.intensity * hit.rd.phong * pow(dot(-ray, r), 50);
-		vec3 color = ((hit.rd.ambient + ld) * mainLight.color * hit.rd.color);// + (ls * mainLight.color);
+		vec3 s = normalize(hit.pos - mainLight.pos);
+		vec3 r =  s - 2 * dot(hit.norm, s) * hit.norm;
+
+		float unobstructed = checkSecondaryRay(mainLight.pos - hit.pos, hit.pos);
+
+		float ld = mainLight.intensity * hit.rd.diffuse * dot(s, hit.norm) * unobstructed;
+		float ls = mainLight.intensity * hit.rd.phong * pow(dot(-ray, r), 50) * unobstructed;
+		vec3 color = ((hit.rd.ambient + ld) * mainLight.color * hit.rd.color) + max(ls, 0) * mainLight.color;
 		imageStore(outputTexture, ivec2(gl_WorkGroupID.xy), vec4(color, 1));
 	}
-
-
 }
