@@ -23,7 +23,7 @@ const int HEIGHT = 600;
 const size_t MAX_FRAMES_SENT = 3;
 
 const std::vector<const char*> validationLayers = {
-	"VK_LAYER_LUNARG_standard_validation"
+	"VK_LAYER_KHRONOS_validation"
 };
 const std::vector<const char*> requiredDeviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
