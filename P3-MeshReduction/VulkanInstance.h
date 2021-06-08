@@ -29,7 +29,7 @@ public:
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 	VkCommandPool commandPool;
 	VkDescriptorPool descriptorPool;
-	VkCommandBuffer drawCmd;
+	//VkCommandBuffer drawCmd;
 	std::vector<VkCommandBuffer> commandBuffers;
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -51,13 +51,13 @@ public:
 	
 	void drawFrame();
 
-	void beginSetCmdBuffer(VkCommandBuffer buffer);
+	void beginRenderCmdBuffer(VkCommandBuffer buffer);
 
 	void endSetCmdBuffer(VkCommandBuffer buffer);
 
-	VkCommandBuffer beginSingleTimeCommands();
+	//VkCommandBuffer beginSingleTimeCommands();
 
-	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+	//void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 	
 	void CreateVertexBuffers(std::vector<primative::Vertex> verticies);
 
@@ -136,7 +136,7 @@ private:
 
 	void CreateCommandBuffers();
 
-	void resetCmdBuffer(int index);
+	//void writeCmdBuffer(int index);
 
 	void CreateSynchronizers();
 

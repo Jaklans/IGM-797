@@ -5,27 +5,16 @@
 
 
 void Mesh::GenerateFromFile(const char* filename){
-	//verticies = std::vector<primative::Vertex>();
-	//indices = std::vector<unsigned short>();
-	std::vector<Vertex> tempVerts = std::vector<Vertex>();
-	std::vector<Triangle> triangles = std::vector<Triangle>();
 
 	std::ifstream inputStream(filename);
 
 	char lineType;
 	std::string line;
 
-	Vertex currentVertex;
-	currentVertex.neighbors = std::vector<unsigned short>();
-	currentVertex.triangles = std::vector<Triangle*>();
+	int vertexCount = 0;
+	int faceCount = 0;
 
-	Triangle currentTri;
-	unsigned short currentIndicies[3];
-
-	//TEMP - using normal to send color data
-	//currentVertex.normal = { 0.0f, 0.0f, 0.0f };
-
-	size_t i;
+	//Count the file first
 	while (std::getline(inputStream, line)) {
 		std::istringstream lineStream(line);
 
@@ -33,70 +22,88 @@ void Mesh::GenerateFromFile(const char* filename){
 
 		switch (lineType) {
 		case 'v':
+		{	vertexCount++; break; }
+		case 'f':
+		{ faceCount++; break; }
+		}
+	}
+
+	Vertex* verts = new Vertex[vertexCount]; 
+	Triangle* tris = new Triangle[faceCount];
+
+	int vi = 0;
+	int ti = 0;
+
+	inputStream.clear();
+	inputStream.seekg(0);
+
+	size_t totalLinecount = vertexCount + faceCount;
+	//This only works if all verticies are defined before faces, and faces are only triangles
+	for (size_t l = 0; l < totalLinecount; l++) {
+		std::getline(inputStream, line);
+		std::istringstream lineStream(line);
+		
+		lineStream >> lineType;
+
+		switch (lineType) {
+		case 'v':
 		{
 			// read a vertex
-			lineStream >> currentVertex.position.x;
-			lineStream >> currentVertex.position.y;
-			lineStream >> currentVertex.position.z;
-			currentVertex.index++;
+			lineStream >> verts[vi].position.x;
+			lineStream >> verts[vi].position.y;
+			lineStream >> verts[vi].position.z;
+			verts[vi].index = vi;
+			vi++;
 
-			//if (currentVertex.normal.r < 1.0f) {
-			//	currentVertex.normal.r += .0015f;
-			//}
-			//else if (currentVertex.normal.g < 1.0f) {
-			//	currentVertex.normal.g += .0015f;
-			//}
-			//else if (currentVertex.normal.b < 1.0f) {
-			//	currentVertex.normal.b += .0015f;
-			//}
-
-			tempVerts.push_back(currentVertex);
 			break;
 		}
 		case 'f':
 		{
-			currentTri = Triangle();
+			Triangle* currentTri = tris + ti;
+
+			unsigned short currentIndicies[3];
 
 			// read a triangle's vertex indices
+			unsigned short temp;
 			lineStream >> currentIndicies[0];
 			lineStream >> currentIndicies[1];
 			lineStream >> currentIndicies[2];
-			currentIndicies[0]--;
-			currentIndicies[1]--;
-			currentIndicies[2]--;
-			currentTri.verticies[0] = currentIndicies[0];
-			currentTri.verticies[1] = currentIndicies[1];
-			currentTri.verticies[2] = currentIndicies[2];
-			currentTri.calculateNormal(&tempVerts);
 
-			triangles.push_back(currentTri);
-			Triangle* thisTri = &triangles[triangles.size() - 1];
+			//Indicies are not zero indexed
+			currentTri->verticies[0] = --currentIndicies[0];
+			currentTri->verticies[1] = --currentIndicies[1];
+			currentTri->verticies[2] = --currentIndicies[2];
+			currentTri->calculateNormal(verts);
+
 			
-			bool found;
 			//For each vertex
-			for (i = 0; i < 3; i++) {
-				tempVerts[currentTri.verticies[i]].triangles.push_back(thisTri);
-
+			
+			for (size_t i = 0; i < 3; i++) {
+				Triangle* ref = currentTri;
+				verts[currentTri->verticies[i]].triangles.push_back(ref);
+			}
+/*
 				//Try to add the other two indicies
 				for (size_t j = 0; j < 3; j++) {
 					if (i == j) continue;
 
-					found = false;
-					//Look through each of its neighbors  
-					for (size_t k = 0; k < tempVerts[currentTri.verticies[i]].neighbors.size(); k++) {
-						if (tempVerts[currentTri.verticies[i]].neighbors[k] == currentIndicies[j]) {
+
+					bool found = false;
+					//Loop through existing indicies to make sure the new one is not already present
+					for (size_t k = 0; k < verts[currentTri->verticies[i]].neighbors.size(); k++) {
+						if (verts[currentTri->verticies[i]].neighbors[k] == currentIndicies[j]) {
 							found = true;
 							break;
 						}
 					}
 
 					//And add this index if it is not there already
-					if (!found) tempVerts[currentTri.verticies[i]].neighbors.push_back(currentIndicies[j]);
+					if (!found) verts[currentTri->verticies[i]].neighbors.push_back(currentIndicies[j]);
 				}
-			}
-			//indices.push_back(currentIndicies[0] - 1);
-			//indices.push_back(currentIndicies[1] - 1);
-			//indices.push_back(currentIndicies[2] - 1);
+			}*/
+
+			ti++;
+
 			break;
 		}
 		default:
@@ -106,20 +113,43 @@ void Mesh::GenerateFromFile(const char* filename){
 	}
 	inputStream.close();
 
-	for (i = 0; i < tempVerts.size(); i++) {
-		tempVerts[i].GenerateAvgNormal();
-		tempVerts[i].index = i;
-		for (size_t j = 0; j < tempVerts.size(); j++) {
+	for (size_t i = 0; i < vertexCount; i++) {
+		verts[i].GenerateAvgNormal();
+		for (size_t j = 0; j < vertexCount; j++) {
 			if (i == j) continue;
-			ComputeEdgeCost(&tempVerts[i], &tempVerts[j]);
+			//ComputeEdgeCost(&verts[i], &verts[j]);
 		}
 	}
 
-	verticies = std::vector<primative::Vertex>(tempVerts.size());
-	size_t vItt = tempVerts.size() - 1;
+	//Render the bunny TEMP
+
+	verticies = std::vector<primative::Vertex>(vertexCount);
+	indices = std::vector<unsigned short>(faceCount * 3);
+	 
+	for (size_t i = 0; i < vertexCount; i++) {
+		verticies[i].pos = verts[i].position;
+		verticies[i].normal = verts[i].normal;
+	}
+	for (size_t i = 0; i < faceCount; i++) {
+		indices[i * 3 + 0] = tris[i].verticies[0];
+		indices[i * 3 + 1] = tris[i].verticies[1];
+		indices[i * 3 + 2] = tris[i].verticies[2];
+	}
+	
+	delete[] tris;
+	delete[] verts;
+	
+
+	return;
+
+	//Render the bunny TEMP
+
+	/*
+	verticies = std::vector<primative::Vertex>(verts.size());
+	size_t vItt = verts.size() - 1;
 	verticies[0].pos.x = 0.0f;
-	indices = std::vector<unsigned short>(triangles.size() * 3);
-	size_t iItt = triangles.size() * 3 - 1;
+	indices = std::vector<unsigned short>(tris.size() * 3);
+	size_t iItt = tris.size() * 3 - 1;
 	indices[0] = 0;
 
 	unsigned short v = 0;
@@ -127,47 +157,47 @@ void Mesh::GenerateFromFile(const char* filename){
 	primative::Vertex currentVert;
 	
 
-	unsigned short* indexMapping = new unsigned short[tempVerts.size()];
+	unsigned short* indexMapping = new unsigned short[verts.size()];
 
 	while (!indices[0] && verticies[0].pos.x == 0.0f) {
 		cost = 100000000;
-		for (i = 0; i < tempVerts.size(); i++) {
-			if (tempVerts[i].collapse && cost > tempVerts[i].cost) {
+		for (i = 0; i < verts.size(); i++) {
+			if (verts[i].collapse && cost > verts[i].cost) {
 				v = i;
 			}
 		}
 
 		//Collapse the vertex
-		currentVert.pos = tempVerts[v].position;
-		currentVert.normal = tempVerts[v].normal;
+		currentVert.pos = verts[v].position;
+		currentVert.normal = verts[v].normal;
 
-		if (!tempVerts[v].collapse) {
+		if (!verts[v].collapse) {
 			//Send V to the list
-			indexMapping[tempVerts[v].index] = vItt;
+			indexMapping[verts[v].index] = vItt;
 			verticies[vItt--] = currentVert;
 
 			continue;
 		}
 
-		for (i = 0; i < tempVerts[v].triangles.size(); i++) {
-			if (tempVerts[v].triangles[i]->containVertex(tempVerts[v].collapse)) {
+		for (i = 0; i < verts[v].triangles.size(); i++) {
+			if (verts[v].triangles[i]->containVertex(verts[v].collapse)) {
 				//Tri contains edge, remove it
-				indices[iItt--] = tempVerts[tempVerts[v].triangles[i]->verticies[2]].index;
-				indices[iItt--] = tempVerts[tempVerts[v].triangles[i]->verticies[1]].index;
-				indices[iItt--] = tempVerts[tempVerts[v].triangles[i]->verticies[0]].index;
+				indices[iItt--] = verts[verts[v].triangles[i]->verticies[2]].index;
+				indices[iItt--] = verts[verts[v].triangles[i]->verticies[1]].index;
+				indices[iItt--] = verts[verts[v].triangles[i]->verticies[0]].index;
 			}
 			else {
 				//Replace V with the vert we collapse to
-				if (tempVerts[v].triangles[i]->verticies[0] == v) tempVerts[v].triangles[i]->verticies[0] = tempVerts[v].collapse;
-				if (tempVerts[v].triangles[i]->verticies[1] == v) tempVerts[v].triangles[i]->verticies[0] = tempVerts[v].collapse;
-				if (tempVerts[v].triangles[i]->verticies[2] == v) tempVerts[v].triangles[i]->verticies[0] = tempVerts[v].collapse;
+				if (verts[v].triangles[i]->verticies[0] == v) verts[v].triangles[i]->verticies[0] = verts[v].collapse;
+				if (verts[v].triangles[i]->verticies[1] == v) verts[v].triangles[i]->verticies[0] = verts[v].collapse;
+				if (verts[v].triangles[i]->verticies[2] == v) verts[v].triangles[i]->verticies[0] = verts[v].collapse;
 			}
 		}
 
-		tempVerts[v].collapse = -1;
+		verts[v].collapse = -1;
 
-		for (i = 0; i < tempVerts[v].neighbors.size(); i++) {
-			ComputeVertexCollapseCost(&tempVerts[tempVerts[v].neighbors[i]], tempVerts);
+		for (i = 0; i < verts[v].neighbors.size(); i++) {
+			ComputeVertexCollapseCost(&verts[verts[v].neighbors[i]], verts);
 		}
 	}
 
@@ -176,6 +206,7 @@ void Mesh::GenerateFromFile(const char* filename){
 	}
 
 	delete[] indexMapping;
+	*/
 }
 
 
@@ -187,6 +218,7 @@ void Mesh::Render(VkCommandBuffer drawCmd, unsigned short triCount){
 	vkCmdDrawIndexed(drawCmd, triCount * 3, 1, 0, 0, 0);
 }
 
+/*
 float ComputeEdgeCost(Vertex* u, Vertex* v) {
 	std::vector<Triangle*> sides;
 	for (int i = 0; i < u->triangles.size(); i++) {
@@ -220,7 +252,7 @@ void ComputeVertexCollapseCost(Vertex* v, std::vector<Vertex>& verts) {
 			v->cost = cost;
 		}
 	}
-}
+}*/
 
 void Vertex::GenerateAvgNormal(){
 	normal = { 0.0f, 0.0f, 0.0f };

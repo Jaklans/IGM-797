@@ -14,11 +14,12 @@ struct Mesh {
 
 struct Triangle;
 
-struct Vertex {
+class Vertex {
+public:
 	glm::vec3 position;
 	glm::vec3 normal;
 	unsigned short index;
-	std::vector<unsigned short> neighbors;
+	//std::vector<unsigned short> neighbors;
 	std::vector<Triangle*> triangles;
 	float cost;
 	//If MAX USHORT, uninitialized or inactive
@@ -28,11 +29,13 @@ struct Vertex {
 		position = { 0.0f, 0.0f, 0.0f };
 		normal = { 0.0f, 0.0f, 0.0f };
 		index = 0;
-		neighbors = std::vector<unsigned short>();
+		//neighbors = std::vector<unsigned short>();
 		triangles = std::vector<Triangle*>();
 		cost = -1.0f;
 		collapse = -1;
 	}
+
+
 	void GenerateAvgNormal();
 };
 
@@ -52,10 +55,10 @@ struct Triangle {
 		return verticies[0] == vert || verticies[1] == vert || verticies[2] == vert;
 	}
 
-	void calculateNormal(std::vector<Vertex>* verts) {
-		normal = glm::cross(
-			(*verts)[verticies[1]].position - (*verts)[verticies[0]].position,
-			(*verts)[verticies[1]].position - (*verts)[verticies[2]].position);
+	void calculateNormal(Vertex* verts) {
+		normal = -glm::normalize(glm::cross(
+			verts[verticies[1]].position - verts[verticies[0]].position,
+			verts[verticies[1]].position - verts[verticies[2]].position));
 	}
 };
 

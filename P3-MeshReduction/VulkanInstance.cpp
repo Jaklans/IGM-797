@@ -113,8 +113,7 @@ static std::vector<char> readFile(const std::string& filename) {
 			}
 		}
 
-		//Redefine Command Buffers (unfortunate)
-		resetCmdBuffer(currentFrame);
+		//writeCmdBuffer(currentFrame);
 
 		VkSubmitInfo submitInfo = {};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1031,7 +1030,7 @@ static std::vector<char> readFile(const std::string& filename) {
 		void* data;
 		vkMapMemory(device, indexBufferMemory, 0, bufferInfo.size, 0, &data);
 		memcpy(data, indicies.data(), (size_t)bufferInfo.size);
-		vkUnmapMemory(device, vertexBufferMemory);
+		vkUnmapMemory(device, indexBufferMemory);
 	}
 
 	void VulkanInstance::UpdateIndexBuffers(std::vector<unsigned short> indicies, size_t count) {
@@ -1061,6 +1060,7 @@ static std::vector<char> readFile(const std::string& filename) {
 	}
 
 	void VulkanInstance::CreateCommandBuffers() {
+		/*
 		//Create Main Draw Command Buffer
 		VkCommandBufferAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1070,13 +1070,12 @@ static std::vector<char> readFile(const std::string& filename) {
 
 		if (vkAllocateCommandBuffers(device, &allocInfo, &drawCmd) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to allocate Command Buffers");
-		}
+		}*/
 
 		//Create command buffers for three swapchains
-		//(They will only clear the screen and call secondary buffers)
 		commandBuffers.resize(swapChainFramebuffers.size());
 
-		allocInfo = {};
+		VkCommandBufferAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.commandPool = commandPool;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -1087,11 +1086,12 @@ static std::vector<char> readFile(const std::string& filename) {
 		}
 
 		for (size_t i = 0; i < commandBuffers.size(); i++) {
-			resetCmdBuffer(i);
+			//It may be nessessary to begin/end the buffers as initialization
+			//writeCmdBuffer(i);
 		}
 	}
 
-	void VulkanInstance::resetCmdBuffer(int index) {
+	/*void VulkanInstance::writeCmdBuffer(int index) {
 		vkResetCommandBuffer(commandBuffers[index], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 		VkCommandBufferBeginInfo beginInfo = {};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1116,35 +1116,50 @@ static std::vector<char> readFile(const std::string& filename) {
 		vkCmdBeginRenderPass(commandBuffers[index], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		vkCmdBindPipeline(commandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-		vkCmdExecuteCommands(commandBuffers[index], 1, &drawCmd);
+		//vkCmdExecuteCommands(commandBuffers[index], 1, &drawCmd);
 
 		vkCmdEndRenderPass(commandBuffers[index]);
 
 		if (vkEndCommandBuffer(commandBuffers[index]) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to record Command Buffer!");
 		}
-	}
+	}*/
 
-	void VulkanInstance::beginSetCmdBuffer(VkCommandBuffer cmdBuffer) {
+	void VulkanInstance::beginRenderCmdBuffer(VkCommandBuffer cmdBuffer) {
 		vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+		beginInfo.pInheritanceInfo = nullptr;
 
-		VkCommandBufferInheritanceInfo info = {};
-		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-		info.renderPass = renderPass;
+		if (vkBeginCommandBuffer(cmdBuffer, &beginInfo) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to begin recording Command Buffer");
+		}
 
-		VkCommandBufferBeginInfo bufferBeginInfo = {};
-		bufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		//bufferBeginInfo.pInheritanceInfo = &info;
-		bufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+		VkRenderPassBeginInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = swapChainFramebuffers[currentFrame];
+		renderPassInfo.renderArea.offset = { 0,0 };
+		renderPassInfo.renderArea.extent = swapChainExtent;
 
-		vkBeginCommandBuffer(cmdBuffer, &bufferBeginInfo);
+		VkClearValue clearColor = { 0.0f,0.0f,0.0f,1.0f };
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clearColor;
+
+		vkCmdBeginRenderPass(cmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 		vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 	}
 
 	void VulkanInstance::endSetCmdBuffer(VkCommandBuffer cmdBuffer) {
-		vkEndCommandBuffer(cmdBuffer);
+		vkCmdEndRenderPass(cmdBuffer);
+
+		if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to record Command Buffer!");
+		}
 	}
 
+	/*
 	VkCommandBuffer VulkanInstance::beginSingleTimeCommands()
 	{
 		VkCommandBufferAllocateInfo allocInfo = {};
@@ -1178,7 +1193,7 @@ static std::vector<char> readFile(const std::string& filename) {
 		vkQueueWaitIdle(graphicsQueue);
 
 		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
-	}
+	}*/
 
 	void VulkanInstance::CreateSynchronizers() {
 		imageAvailableSemaphores.resize(MAX_FRAMES_SENT);
